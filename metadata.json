@@ -1,0 +1,5 @@
+{
+  "name": "Darwin Cell KPI Tracker",
+  "description": "Plataforma de gestión de alto rendimiento para equipos de ventas. Seguimiento de KPIs diarios, cálculo automático de scores, rankings y bonificaciones.",
+  "requestFramePermissions": []
+}
