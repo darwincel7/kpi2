@@ -1,32 +1,76 @@
-import React, { useState } from 'react';
-import { getEntries, getAggregatedStats, calculateScore, getActiveBonusRules } from '../services/kpiService';
-import { USERS, TARGETS } from '../constants';
-import { Role } from '../types';
-import { Trophy, DollarSign, Target, Award, Crown } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { fetchEntries, getAggregatedStats, calculateScore, fetchActiveBonusRules, fetchUsers, fetchTargets } from '../services/kpiService';
+import { supabase } from '../services/supabaseClient';
+import { TARGETS as DEFAULT_TARGETS } from '../constants';
+import { Role, KPIEntry, BonusRule, User, Target } from '../types';
+import { Trophy, DollarSign, Target as TargetIcon, Award, Crown, Loader2, Calendar } from 'lucide-react';
 
 const Ranking: React.FC = () => {
   const [timeframe, setTimeframe] = useState<'current_month' | 'all_time'>('current_month');
+  const [allEntries, setAllEntries] = useState<KPIEntry[]>([]);
+  const [activeBonusRules, setActiveBonusRules] = useState<BonusRule[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [targets, setTargets] = useState<Target>(DEFAULT_TARGETS);
+  const [loading, setLoading] = useState(true);
+
+  const loadData = async () => {
+    // Keep loading only on first fetch
+    if(allEntries.length === 0) setLoading(true);
+
+    const [entries, rules, fetchedUsers, fetchedTargets] = await Promise.all([
+        fetchEntries(),
+        fetchActiveBonusRules(),
+        fetchUsers(),
+        fetchTargets()
+    ]);
+    setAllEntries(entries);
+    setActiveBonusRules(rules);
+    setUsers(fetchedUsers);
+    setTargets(fetchedTargets);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadData();
+
+    // Subscribe to changes
+    const channel = supabase
+      .channel('ranking_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'kpi_entries' },
+        () => loadData()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
 
   // Filter Data Logic
-  const allEntries = getEntries();
-  const staffUsers = USERS.filter(u => u.role === Role.STAFF);
-  const activeBonusRules = getActiveBonusRules();
+  const staffUsers = users.filter(u => u.role === Role.STAFF);
 
   // Helper to filter entries by time
   const getFilteredEntries = (userId: string) => {
     return allEntries.filter(e => {
         if (e.userId !== userId) return false;
+        
         if (timeframe === 'current_month') {
-            // Simple check for last 30 days for demo purposes
-            const date = new Date(e.date);
+            // Strict calendar month check (e.g. all of October)
+            const entryDate = new Date(e.date + 'T12:00:00'); // Safe parsing for YYYY-MM-DD
             const today = new Date();
-            const diffTime = Math.abs(today.getTime() - date.getTime());
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            return diffDays <= 30;
+            
+            return entryDate.getMonth() === today.getMonth() && 
+                   entryDate.getFullYear() === today.getFullYear();
         }
         return true;
     });
   };
+
+  const currentMonthName = new Date().toLocaleString('es-ES', { month: 'long' });
 
   // Calculate Comprehensive Stats per User
   const rankingData = staffUsers.map(user => {
@@ -35,10 +79,10 @@ const Ranking: React.FC = () => {
     
     // Average Score
     let totalScoreSum = 0;
-    userEntries.forEach(e => totalScoreSum += calculateScore(e, TARGETS).totalScore);
+    userEntries.forEach(e => totalScoreSum += calculateScore(e, targets).totalScore);
     const avgScore = userEntries.length ? Math.round(totalScoreSum / userEntries.length) : 0;
 
-    // Calculate Bonuses using ACTIVE rules from service
+    // Calculate Bonuses using ACTIVE rules
     const achievedBonuses = activeBonusRules.filter(rule => {
         if (rule.metric === 'amount') return stats.totalAmount >= rule.threshold;
         if (rule.metric === 'conversion') return stats.avgConversion >= rule.threshold;
@@ -72,9 +116,10 @@ const Ranking: React.FC = () => {
         <div className="mt-4 md:mt-0 flex bg-slate-100 p-1 rounded-lg">
             <button 
                 onClick={() => setTimeframe('current_month')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${timeframe === 'current_month' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all ${timeframe === 'current_month' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
             >
-                Mes Actual
+                <Calendar size={14} className="mr-2" />
+                Mes Actual ({currentMonthName})
             </button>
             <button 
                 onClick={() => setTimeframe('all_time')}
@@ -94,21 +139,25 @@ const Ranking: React.FC = () => {
         </div>
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col justify-center">
             <p className="text-slate-500 font-medium mb-1 flex items-center"><Crown size={18} className="mr-2 text-yellow-500"/> Top Performer (Ventas)</p>
-            <div className="flex items-center mt-2">
-                <img src={rankingData[0]?.user.avatar} className="w-12 h-12 rounded-full border-2 border-yellow-100 mr-3" alt="Top" />
-                <div>
-                    <h3 className="text-xl font-bold text-slate-800">{rankingData[0]?.user.name}</h3>
-                    <p className="text-sm text-green-600 font-bold">RD$ {rankingData[0]?.stats.totalAmount.toLocaleString()}</p>
+            {rankingData.length > 0 && rankingData[0].user && rankingData[0].stats.totalAmount > 0 ? (
+                <div className="flex items-center mt-2">
+                    <img src={rankingData[0].user.avatar} className="w-12 h-12 rounded-full border-2 border-yellow-100 mr-3" alt="Top" />
+                    <div>
+                        <h3 className="text-xl font-bold text-slate-800">{rankingData[0].user.name}</h3>
+                        <p className="text-sm text-green-600 font-bold">RD$ {rankingData[0].stats.totalAmount.toLocaleString()}</p>
+                    </div>
                 </div>
-            </div>
+            ) : (
+                <p className="text-slate-400 italic mt-2">Sin datos suficientes este mes</p>
+            )}
         </div>
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col justify-center">
-             <p className="text-slate-500 font-medium mb-1 flex items-center"><Target size={18} className="mr-2 text-blue-500"/> Conversión Promedio Equipo</p>
+             <p className="text-slate-500 font-medium mb-1 flex items-center"><TargetIcon size={18} className="mr-2 text-blue-500"/> Conversión Promedio Equipo</p>
              <h2 className="text-3xl font-bold text-slate-800 mt-1">
-                 {Math.round(rankingData.reduce((acc, curr) => acc + curr.stats.avgConversion, 0) / rankingData.length)}%
+                 {rankingData.length > 0 ? Math.round(rankingData.reduce((acc, curr) => acc + curr.stats.avgConversion, 0) / rankingData.length) : 0}%
              </h2>
              <div className="w-full bg-slate-100 rounded-full h-2 mt-3">
-                 <div className="bg-blue-500 h-2 rounded-full" style={{width: `${Math.round(rankingData.reduce((acc, curr) => acc + curr.stats.avgConversion, 0) / rankingData.length)}%`}}></div>
+                 <div className="bg-blue-500 h-2 rounded-full" style={{width: `${rankingData.length > 0 ? Math.round(rankingData.reduce((acc, curr) => acc + curr.stats.avgConversion, 0) / rankingData.length) : 0}%`}}></div>
              </div>
         </div>
       </div>
@@ -144,7 +193,7 @@ const Ranking: React.FC = () => {
                             </td>
                             <td className="p-4 text-center">
                                 <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                    row.stats.avgConversion >= TARGETS.dailyConversion ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                                    row.stats.avgConversion >= targets.dailyConversion ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
                                 }`}>
                                     {row.stats.avgConversion}%
                                 </span>

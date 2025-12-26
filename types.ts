@@ -57,3 +57,11 @@ export interface BonusRule {
   period: 'monthly';
   isActive: boolean; // New: To toggle rule status
 }
+
+export interface AuditLog {
+  id: string;
+  action: string;
+  user: string;
+  details: string;
+  date: string;
+}

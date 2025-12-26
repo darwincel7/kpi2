@@ -34,7 +34,12 @@ const generateMockHistory = (): KPIEntry[] => {
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      
+      // Use local date string YYYY-MM-DD to match business day, not UTC
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
       
       // Randomize data slightly for realism
       const clients = Math.floor(Math.random() * 20) + 10;
