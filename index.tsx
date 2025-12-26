@@ -18,13 +18,9 @@ interface ErrorBoundaryState {
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState;
-  public props: ErrorBoundaryProps;
-
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
-    this.props = props;
   }
 
   static getDerivedStateFromError(error: any): ErrorBoundaryState {
@@ -72,7 +68,6 @@ if (container) {
       </React.StrictMode>
     );
     // Remove loading message once React mounts successfully
-    // We use a slight timeout to ensure styles are applied
     setTimeout(() => {
         if (loadingMsg) loadingMsg.style.display = 'none';
     }, 100);
