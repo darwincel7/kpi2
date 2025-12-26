@@ -1,11 +1,12 @@
-import { KPIEntry, DailyScore, Target } from '../types';
-import { TARGETS, MOCK_HISTORY } from '../constants';
+import { KPIEntry, DailyScore, Target, BonusRule } from '../types';
+import { TARGETS, MOCK_HISTORY, BONUS_RULES as INITIAL_BONUS_RULES } from '../constants';
 
 // Local storage key
 const STORAGE_KEY = 'darwin_kpi_entries';
 
 // Initialize data
 let inMemoryEntries: KPIEntry[] = [...MOCK_HISTORY];
+let currentBonusRules: BonusRule[] = [...INITIAL_BONUS_RULES];
 
 export const getEntries = (): KPIEntry[] => {
   return inMemoryEntries;
@@ -19,6 +20,20 @@ export const addEntry = (entry: KPIEntry): void => {
   inMemoryEntries = [...inMemoryEntries, entry];
   // In a real app, we would persist to Supabase here
 };
+
+// --- BONUS RULES SERVICE ---
+export const getBonusRules = (): BonusRule[] => {
+  return currentBonusRules;
+};
+
+export const getActiveBonusRules = (): BonusRule[] => {
+  return currentBonusRules.filter(r => r.isActive);
+};
+
+export const saveBonusRules = (rules: BonusRule[]): void => {
+  currentBonusRules = rules;
+};
+// ---------------------------
 
 export const calculateConversion = (sales: number, clients: number): number => {
   if (clients === 0) return 0;

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User, KPIEntry, DailyScore, Role } from '../types';
-import { getEntriesByUser, calculateScore, getAggregatedStats, getEntries } from '../services/kpiService';
-import { TARGETS, BONUS_RULES, USERS } from '../constants';
+import { getEntriesByUser, calculateScore, getAggregatedStats, getEntries, getActiveBonusRules } from '../services/kpiService';
+import { TARGETS, USERS } from '../constants';
 import KPICard from '../components/KPICard';
 import { TrendingUp, Target, Award, CheckCircle, X, Calendar, DollarSign, Activity, AlertCircle, ChevronRight, Trophy, AlertTriangle, Repeat, Smartphone } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -23,6 +23,7 @@ const MyProgress: React.FC<MyProgressProps> = ({ user }) => {
   const entries = getEntriesByUser(user.id);
   const stats = getAggregatedStats(entries);
   const [modal, setModal] = useState<ModalState>({ isOpen: false, type: null, data: null, title: '' });
+  const activeBonusRules = getActiveBonusRules();
 
   // Calculate today's score if available
   const todayStr = new Date().toISOString().split('T')[0];
@@ -438,7 +439,7 @@ const MyProgress: React.FC<MyProgressProps> = ({ user }) => {
                 <Award className="mr-2 text-yellow-500" /> Metas de Bonos
             </h3>
             <div className="space-y-6">
-                {BONUS_RULES.map(rule => {
+                {activeBonusRules.map(rule => {
                     let currentVal = 0;
                     let label = "";
                     

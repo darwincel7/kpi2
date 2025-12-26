@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { TARGETS, BONUS_RULES } from '../constants';
+import { TARGETS } from '../constants';
 import { Target as TargetType, BonusRule } from '../types';
+import { getBonusRules, saveBonusRules } from '../services/kpiService';
 import { Save, RefreshCw, AlertTriangle, Check, Shield, FileText, Plus, X, Edit2, Trash2, Power } from 'lucide-react';
 
 const SettingsAudit: React.FC = () => {
   // Local state to simulate changing constants
   const [targets, setTargets] = useState<TargetType>({...TARGETS});
-  const [rules, setRules] = useState<BonusRule[]>([...BONUS_RULES]);
+  // Load initial rules from service
+  const [rules, setRules] = useState<BonusRule[]>(getBonusRules());
   const [hasChanges, setHasChanges] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -32,7 +34,9 @@ const SettingsAudit: React.FC = () => {
   };
 
   const handleSave = () => {
-      // In a real app, this would send an API request
+      // Save rules to service
+      saveBonusRules(rules);
+      
       setShowSuccess(true);
       setHasChanges(false);
       setTimeout(() => setShowSuccess(false), 3000);
@@ -57,9 +61,11 @@ const SettingsAudit: React.FC = () => {
       e.preventDefault();
       if (!newRule.name || !newRule.threshold || !newRule.amount) return;
 
+      let updatedRules = [...rules];
+
       if (editingRuleId) {
           // Update existing
-          setRules(prev => prev.map(r => r.id === editingRuleId ? { ...r, ...newRule } as BonusRule : r));
+          updatedRules = updatedRules.map(r => r.id === editingRuleId ? { ...r, ...newRule } as BonusRule : r);
       } else {
           // Create new
           const rule: BonusRule = {
@@ -71,9 +77,10 @@ const SettingsAudit: React.FC = () => {
               period: 'monthly',
               isActive: true
           };
-          setRules([...rules, rule]);
+          updatedRules.push(rule);
       }
 
+      setRules(updatedRules);
       setIsModalOpen(false);
       setHasChanges(true); // Indicate that list has changed
   };

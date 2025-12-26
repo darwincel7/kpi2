@@ -3,8 +3,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
   LineChart, Line, AreaChart, Area
 } from 'recharts';
-import { getEntries, getAggregatedStats, calculateScore } from '../services/kpiService';
-import { USERS, TARGETS, BONUS_RULES } from '../constants';
+import { getEntries, getAggregatedStats, calculateScore, getActiveBonusRules } from '../services/kpiService';
+import { USERS, TARGETS } from '../constants';
 import KPICard from '../components/KPICard';
 import { DollarSign, Activity, TrendingUp, AlertTriangle, UserCheck, Calendar, Filter, X, Check, Smartphone } from 'lucide-react';
 import { Role } from '../types';
@@ -13,6 +13,7 @@ const DashboardAdmin: React.FC = () => {
   // Date Management State
   const [dateRange, setDateRange] = useState<'7d' | '30d' | 'custom'>('7d');
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const activeBonusRules = getActiveBonusRules();
   
   // Initialize with last 7 days
   const today = new Date();
@@ -370,7 +371,7 @@ const DashboardAdmin: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rankingData.map((item, index) => {
-                const bonuses = BONUS_RULES.filter(rule => {
+                const bonuses = activeBonusRules.filter(rule => {
                     if(rule.metric === 'amount') return item.stats.totalAmount >= rule.threshold;
                     if(rule.metric === 'conversion') return item.stats.avgConversion >= rule.threshold;
                     if(rule.metric === 'score') return item.score >= rule.threshold;

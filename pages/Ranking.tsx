@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { getEntries, getAggregatedStats, calculateScore } from '../services/kpiService';
-import { USERS, BONUS_RULES, TARGETS } from '../constants';
+import { getEntries, getAggregatedStats, calculateScore, getActiveBonusRules } from '../services/kpiService';
+import { USERS, TARGETS } from '../constants';
 import { Role } from '../types';
-import { Trophy, DollarSign, Target, TrendingUp, Award, Crown } from 'lucide-react';
+import { Trophy, DollarSign, Target, Award, Crown } from 'lucide-react';
 
 const Ranking: React.FC = () => {
   const [timeframe, setTimeframe] = useState<'current_month' | 'all_time'>('current_month');
@@ -10,6 +10,7 @@ const Ranking: React.FC = () => {
   // Filter Data Logic
   const allEntries = getEntries();
   const staffUsers = USERS.filter(u => u.role === Role.STAFF);
+  const activeBonusRules = getActiveBonusRules();
 
   // Helper to filter entries by time
   const getFilteredEntries = (userId: string) => {
@@ -37,11 +38,12 @@ const Ranking: React.FC = () => {
     userEntries.forEach(e => totalScoreSum += calculateScore(e, TARGETS).totalScore);
     const avgScore = userEntries.length ? Math.round(totalScoreSum / userEntries.length) : 0;
 
-    // Calculate Bonuses
-    const achievedBonuses = BONUS_RULES.filter(rule => {
+    // Calculate Bonuses using ACTIVE rules from service
+    const achievedBonuses = activeBonusRules.filter(rule => {
         if (rule.metric === 'amount') return stats.totalAmount >= rule.threshold;
         if (rule.metric === 'conversion') return stats.avgConversion >= rule.threshold;
         if (rule.metric === 'score') return avgScore >= rule.threshold;
+        if (rule.metric === 'devices') return stats.totalDevices >= rule.threshold;
         return false;
     });
 
